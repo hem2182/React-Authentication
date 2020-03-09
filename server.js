@@ -4,7 +4,8 @@ const express = require('express');
 require('dotenv').config();
 
 const jwt = require('express-jwt'); // Validate JWT and set req.user.
-const jwksRsa = require('jwks-rsa'); // Retrive RSA keys from the JSON Web Key set (JWKS) endpoint.
+const jwksRsa = require('jwks-rsa'); // Retrieve RSA keys from the JSON Web Key set (JWKS) endpoint.
+const checkScope = require('express-jwt-authz');    // Validates JWT scopes.
 
 const checkJwt = jwt({
     // Dynamically provide a signing key based on the kid in the header and
@@ -38,6 +39,32 @@ app.get("/public", function (req, res) {
 app.get("/private", checkJwt, function (req, res) {
     res.json({
         message: "Hello from private API."
+    })
+})
+
+function checkRole(role) {
+    return function (req, res, next) {
+        const assignedRoles = req.user["http://localhost:3000/roles"];
+        if (Array.isArray(assignedRoles) && assignedRoles.includes(role)) {
+            return next();
+        } else {
+            return res.status(401).send("Insufficient Role");
+        }
+    };
+}
+
+app.get("/admin", checkJwt, checkRole('admin'), function (req, res) {
+    res.json({
+        message: "Hello from Admin API."
+    })
+})
+
+app.get("/course", checkJwt, checkScope(["read:courses"]), function (req, res) {
+    res.json({
+        courses: [
+            { id: 1, title: "Building Apps with React and Redux" },
+            { id: 2, title: "Creating Reusable React Components" }
+        ]
     })
 })
 
